@@ -1,4 +1,4 @@
-name: Build ESP32 Firmware (Manual)
+name: Build ESP32 Firmware (Direct Container)
 
 on:
   push:
@@ -8,36 +8,39 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Запускаем всю сборку прямо внутри официального Docker-окружения ESP-IDF
+    container:
+      image: espressif/idf:v5.5
 
     steps:
     # 1. Скачиваем репозиторий
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    # 2. Исправляем битые подмодули Git
+    # 2. ИИ-исправление битых подмодулей Git внутри контейнера
     - name: Fix broken submodules configuration
       run: |
+        git config --global --add safe.directory /__w/tranquil-fw/tranquil-fw
         git rm --cached components/protobufs || true
         git config --local --remove-section submodule.components/protobufs || true
         git submodule update --init --recursive
 
-    # 3. Разворачиваем компилятор нужной версии (v5.5) БЕЗ автосборки
-    - name: Setup ESP-IDF Environment
-      uses: espressif/esp-idf-ci-action@v1
-      with:
-        esp_idf_version: 'v5.5' # Используем версию, которую требует проект
-
-    # 4. Принудительно меняем цель на обычный ESP32 в терминале
+    # 3. Полный сброс конфигурации и принудительная компиляция под обычный ESP32
     - name: Reconfigure and Build for ESP32
       run: |
-        # Удаляем старый конфиг, завязанный на S3
+        # Переключаемся на встроенную оболочку ESP-IDF (активирует нужный Python и пути)
+        . /opt/esp/idf/export.sh
+        
+        # Удаляем старый sdkconfig, завязанный разработчиками на ESP32-S3
         rm -f sdkconfig
-        # Инициализируем проект под обычный ESP32 (это создаст правильный sdkconfig)
+        
+        # Задаем жесткую цель компиляции — обычный ESP32
         idf.py set-target esp32
-        # Запускаем сборку
+        
+        # Запускаем сборку прошивки
         idf.py build
 
-    # 5. Сохраняем готовые бинарники для скачивания
+    # 4. Выгружаем скомпилированные файлы
     - name: Upload Build Artifacts
       uses: actions/upload-artifact@v4
       with:
