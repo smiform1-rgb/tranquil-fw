@@ -8,16 +8,16 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # Запускаем всю сборку прямо внутри официального Docker-окружения ESP-IDF
+    # Используем версию 5.5.1, которую жестко запрашивает менеджер зависимостей
     container:
-      image: espressif/idf:v5.5
+      image: espressif/idf:v5.5.1
 
     steps:
     # 1. Скачиваем репозиторий
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    # 2. ИИ-исправление битых подмодулей Git внутри контейнера
+    # 2. Исправляем битые подмодули Git внутри контейнера
     - name: Fix broken submodules configuration
       run: |
         git config --global --add safe.directory /__w/tranquil-fw/tranquil-fw
@@ -28,16 +28,21 @@ jobs:
     # 3. Полный сброс конфигурации и принудительная компиляция под обычный ESP32
     - name: Reconfigure and Build for ESP32
       run: |
-        # Переключаемся на встроенную оболочку ESP-IDF (активирует нужный Python и пути)
+        # Переключаемся на встроенную оболочку ESP-IDF
         . /opt/esp/idf/export.sh
         
-        # Удаляем старый sdkconfig, завязанный разработчиками на ESP32-S3
+        # На всякий случай смягчаем требования к версии IDF в манифесте компонента main
+        if [ -f main/idf_component.yml ]; then
+          sed -i 's/idf: ">=5.5.1"/idf: ">=5.5.0"/g' main/idf_component.yml
+        fi
+        
+        # Удаляем старый sdkconfig, завязанный на ESP32-S3
         rm -f sdkconfig
         
         # Задаем жесткую цель компиляции — обычный ESP32
         idf.py set-target esp32
         
-        # Запускаем сборку прошивки
+        # Запускаем финальную сборку прошивки
         idf.py build
 
     # 4. Выгружаем скомпилированные файлы
