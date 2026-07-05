@@ -1,4 +1,4 @@
-name: Build ESP32 Firmware (Forced)
+name: Build ESP32-S3 Firmware (Original)
 
 on:
   push:
@@ -24,52 +24,18 @@ jobs:
         git config --local --remove-section submodule.components/protobufs || true
         git submodule update --init --recursive
 
-    # 3. ИИ-адаптация кода под обычный ESP32 (Вырезаем эксклюзивный код S3)
-    - name: Adapt Code for Classic ESP32
-      run: |
-        # Смягчаем требования к версии IDF в манифесте
-        if [ -f main/idf_component.yml ]; then
-          sed -i 's/idf: ">=5.5.1"/idf: ">=5.5.0"/g' main/idf_component.yml
-        fi
-        
-        # Полностью исключаем usb_pd из сборки CMake приложения main
-        if [ -f main/CMakeLists.txt ]; then
-          # Удаляем строчку подключения usb_pd.cpp из списка исходников
-          sed -i 's|"usb_pd/usb_pd.cpp"||g' main/CMakeLists.txt
-          # Удаляем подключение папки usb_pd из инклюдов
-          sed -i 's|"${CMAKE_CURRENT_SOURCE_DIR}/usb_pd"||g' main/CMakeLists.txt
-        fi
-
-        # Отключаем инициализацию USB PD в главном файле main.cpp
-        if [ -f main/main.cpp ]; then
-          sed -i 's/#include "usb_pd.h"/\/\/ #include "usb_pd.h"/g' main/main.cpp
-          sed -i 's/init_usb_pd();/\/\/ init_usb_pd();/g' main/main.cpp
-        fi
-
-    # 4. Сброс конфигурации и принудительная компиляция
-    - name: Reconfigure and Build for ESP32
+    # 3. Компиляция под ESP32-S3 (конфигурация по умолчанию)
+    - name: Build for ESP32-S3
       run: |
         . /opt/esp/idf/export.sh
-        
-        # Стираем старый sdkconfig от S3
-        rm -f sdkconfig
-        
-        # Инициализируем проект под обычный ESP32
-        idf.py set-target esp32
-        
-        # Добавляем базовые настройки для LED, чтобы убрать warning'и CMake
-        echo "CONFIG_LED_TYPE=1" >> sdkconfig
-        echo "CONFIG_LED_PIN=2" >> sdkconfig
-        echo "CONFIG_LED_NUM_LEDS=30" >> sdkconfig
-        
-        # Запускаем сборку
+        # Мы НЕ трогаем sdkconfig и собираем проект в его оригинальном виде под S3
         idf.py build
 
-    # 5. Сохраняем готовые бинарники, если сборка завершилась успехом
+    # 4. Сохраняем бинарники для скачивания
     - name: Upload Build Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: tranquil-fw-esp32-binaries
+        name: tranquil-fw-esp32s3-binaries
         path: |
           build/bootloader/bootloader.bin
           build/partition_table/partition-table.bin
