@@ -28,7 +28,6 @@ jobs:
     - name: Build for ESP32-S3
       run: |
         . /opt/esp/idf/export.sh
-        # Мы НЕ трогаем sdkconfig и собираем проект в его оригинальном виде под S3
         idf.py build
 
     # 4. Сохраняем бинарники для скачивания
