@@ -10,28 +10,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # 1. Скачиваем репозиторий БЕЗ автоматических подмодулей (чтобы избежать ошибки)
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    # 2. ИИ-исправление сломанного репозитория и ручной запуск submodules
-    - name: Fix broken submodules configuration
+    - name: Fix broken submodules configuration and reset sdkconfig
       run: |
-        # Удаляем упоминание сломанного подмодуля из кэша git, если оно там есть
         git rm --cached components/protobufs || true
-        # Очищаем конфигурацию
         git config --local --remove-section submodule.components/protobufs || true
-        # Инициализируем и обновляем только те подмодули, которые прописаны корректно
         git submodule update --init --recursive
+        # Удаляем старый конфиг S3, чтобы система создала новый под обычный ESP32
+        rm -f sdkconfig
 
-    # 3. Компиляция проекта через контейнер Espressif
     - name: Build Firmware with ESP-IDF
       uses: espressif/esp-idf-ci-action@v1
       with:
         esp_idf_version: 'v5.1'
         target: 'esp32'
 
-    # 4. Сохраняем скомпилированные бинарники
     - name: Upload Build Artifacts
       uses: actions/upload-artifact@v4
       with:
