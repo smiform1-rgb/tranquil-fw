@@ -1,4 +1,4 @@
-name: Build ESP32 Firmware
+name: Build ESP32 Firmware (Manual)
 
 on:
   push:
@@ -10,23 +10,35 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    # 1. Скачиваем репозиторий
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Fix broken submodules configuration and reset sdkconfig
+    # 2. Исправляем битые подмодули Git
+    - name: Fix broken submodules configuration
       run: |
         git rm --cached components/protobufs || true
         git config --local --remove-section submodule.components/protobufs || true
         git submodule update --init --recursive
-        # Удаляем старый конфиг S3, чтобы система создала новый под обычный ESP32
-        rm -f sdkconfig
 
-    - name: Build Firmware with ESP-IDF
+    # 3. Разворачиваем компилятор ESP-IDF v5.1 без автосборки
+    - name: Setup ESP-IDF Environment
       uses: espressif/esp-idf-ci-action@v1
       with:
         esp_idf_version: 'v5.1'
-        target: 'esp32'
+        # Оставляем target пустым, чтобы экшен не запускал компиляцию сам
 
+    # 4. Принудительно меняем цель на обычный ESP32 в терминале
+    - name: Reconfigure and Build for ESP32
+      run: |
+        # Удаляем старый конфиг, завязанный на S3
+        rm -f sdkconfig
+        # Инициализируем проект под обычный ESP32 (это создаст правильный sdkconfig)
+        idf.py set-target esp32
+        # Запускаем сборку
+        idf.py build
+
+    # 5. Сохраняем готовые бинарники для скачивания
     - name: Upload Build Artifacts
       uses: actions/upload-artifact@v4
       with:
